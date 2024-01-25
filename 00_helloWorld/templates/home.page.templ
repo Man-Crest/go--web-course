@@ -1,0 +1,10 @@
+{{template "base" .}} 
+
+{{define "content"}}
+<h1>hello there, this is <span style="color: green;"> Home </span>page</h1>
+<h1>hello there, this is <span style="color: yellow;"> Home </span>page</h1>
+<h1>hello there, this is <span style="color: blue;"> Home </span>page</h1>
+
+<p>this is imported data : {{index .StringMap "test"}}</p>
+
+{{end}}

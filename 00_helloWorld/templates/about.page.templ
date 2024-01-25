@@ -1,0 +1,8 @@
+{{template "base" .}} 
+
+{{define "content"}}
+<h1>hello there, this is <span style="color: red;"> ABOUT </span>page</h1>
+<p>this is imported data : {{index .StringMap "test"}}</p>
+
+
+{{end}}

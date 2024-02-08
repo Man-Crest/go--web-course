@@ -1,28 +1,70 @@
 package main
 
 import (
+	"encoding/gob"
 	"fmt"
+	"os"
 
 	"log"
 	"net/http"
 	"time"
 
 	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/config"
+	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/connection"
 	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/handlers"
+	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/models"
 	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/render"
 	"github.com/alexedwards/scs/v2"
 )
 
-const portNumber = ":8080"
+const portNumber = ":8000"
 
 var app config.AppConfig
 var session *scs.SessionManager
 
+var db *connection.DB
+var err error
+
 // main is the main function
 func main() {
 	// change this to true when in production
+
+	db, err = connection.ConnectSQL()
+	defer db.SQL.Close()
+
+	// Create a new repository with the AppConfig
+	repo := handlers.NewRepo(&app, *db)
+	handlers.NewHandlers(repo)
+
+	err := run()
+	if err != nil {
+		fmt.Println(err, "at run function")
+	}
+	fmt.Println(fmt.Sprintf("Staring application on port %s", portNumber))
+	srv := &http.Server{
+		Addr:    portNumber,
+		Handler: routes(&app),
+	}
+
+	err = srv.ListenAndServe()
+	if err != nil {
+		log.Fatal(err, "error in serving at port ")
+	}
+
+}
+
+func run() error {
 	app.InProduction = false
 
+	gob.Register(models.Reservation{})
+	gob.Register(models.User{})
+	gob.Register([]models.Rooms{})
+	gob.Register(models.Rooms{})
+
+	infolog := log.New(os.Stdout, "INFO\t", log.Ldate|log.Ltime)
+	app.InfoLog = infolog
+	errorlog := log.New(os.Stdout, "ERROR\t", log.Ldate|log.Ltime)
+	app.ErorLog = errorlog
 	// set up the session
 	session = scs.New()
 	session.Lifetime = 24 * time.Hour
@@ -34,26 +76,16 @@ func main() {
 
 	tc, err := render.CreateTemplateCache()
 	if err != nil {
-		log.Fatal("cannot create template cache")
+		log.Fatal("cannot create template cache", err)
 	}
 
 	app.TemplateCache = tc
 	app.UseCache = false
 
-	repo := handlers.NewRepo(&app)
+	repo := handlers.NewRepo(&app, *db)
 	handlers.NewHandlers(repo)
 
 	render.NewTemplates(&app)
 
-	fmt.Println(fmt.Sprintf("Staring application on port %s", portNumber))
-
-	srv := &http.Server{
-		Addr:    portNumber,
-		Handler: routes(&app),
-	}
-
-	err = srv.ListenAndServe()
-	if err != nil {
-		log.Fatal(err)
-	}
+	return err
 }

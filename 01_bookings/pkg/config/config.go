@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"log"
 
+	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/models"
 	"github.com/alexedwards/scs/v2"
 )
 
@@ -15,4 +16,5 @@ type AppConfig struct {
 	ErorLog       *log.Logger
 	InProduction  bool
 	Session       *scs.SessionManager
+	MailChan      chan models.MailData
 }

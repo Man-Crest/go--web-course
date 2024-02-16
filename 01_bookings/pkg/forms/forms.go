@@ -43,3 +43,12 @@ func (f *Form) MinLength(field string, r *http.Request) bool {
 	}
 	return true
 }
+func (f *Form) Required(fields ...string) bool {
+
+	for _, field := range fields {
+		if len(field) > 0 {
+			return true
+		}
+	}
+	return false
+}

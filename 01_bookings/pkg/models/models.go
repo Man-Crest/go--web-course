@@ -40,3 +40,10 @@ type RoomType struct {
 	ID   int    `json:"type-id"`
 	Name string `json:"roomname"`
 }
+
+type MailData struct {
+	From    string
+	To      string
+	Subject string
+	Data    string
+}

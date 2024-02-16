@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/config"
+	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/connection"
 	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/render"
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-chi/chi"
@@ -16,6 +17,7 @@ import (
 )
 
 var app config.AppConfig
+var DB connection.DB
 var session *scs.SessionManager
 
 func getRoutes() http.Handler {
@@ -40,7 +42,7 @@ func getRoutes() http.Handler {
 	app.TemplateCache = tc
 	app.UseCache = true
 
-	repo := NewRepo(&app)
+	repo := NewRepo(&app, DB)
 	NewHandlers(repo)
 
 	render.NewTemplates(&app)

@@ -12,6 +12,7 @@ import (
 	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/config"
 	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/connection"
 	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/handlers"
+	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/helpers"
 	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/models"
 	"github.com/Man-Crest/GO-Projects/01_bookings/pkg/render"
 	"github.com/alexedwards/scs/v2"
@@ -27,19 +28,22 @@ var err error
 
 // main is the main function
 func main() {
-	// change this to true when in production
-
 	db, err = connection.ConnectSQL()
 	defer db.SQL.Close()
+
+	defer close(app.MailChan)
 
 	// Create a new repository with the AppConfig
 	repo := handlers.NewRepo(&app, *db)
 	handlers.NewHandlers(repo)
+	helpers.NewHelpers(&app)
 
 	err := run()
 	if err != nil {
 		fmt.Println(err, "at run function")
 	}
+
+	ReadMail()
 	fmt.Println(fmt.Sprintf("Staring application on port %s", portNumber))
 	srv := &http.Server{
 		Addr:    portNumber,
@@ -79,10 +83,14 @@ func run() error {
 		log.Fatal("cannot create template cache", err)
 	}
 
+	mailChan := make(chan models.MailData)
+	app.MailChan = mailChan
+
 	app.TemplateCache = tc
 	app.UseCache = false
 
 	repo := handlers.NewRepo(&app, *db)
+
 	handlers.NewHandlers(repo)
 
 	render.NewTemplates(&app)

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -37,52 +38,28 @@ func NewHandlers(r *Repository) {
 	Repo = r
 }
 
-// Home is the handler for the home page
-// func (m *Repository) Home(w http.ResponseWriter, r *http.Request) {
-// 	remoteIP := r.RemoteAddr
-// 	m.App.Session.Put(r.Context(), "remote_ip", remoteIP)
-// 	render.RenderTemplate(w, "home.page.templ", &models.TemplateData{})
-// }
-
-// // About is the handler for the about page
-// func (m *Repository) About(w http.ResponseWriter, r *http.Request) {
-// 	// perform some logic
-// 	stringMap := make(map[string]string)
-// 	stringMap["test"] = "Hello, again"
-
-// 	remoteIP := m.App.Session.GetString(r.Context(), "remote_ip")
-// 	stringMap["remote_ip"] = remoteIP
-
-// 	// send data to the template
-// 	render.RenderTemplate(w, "about.page.templ", &models.TemplateData{
-// 		StringMap: stringMap,
-// 	})
-// }
-
 func (m *Repository) Home(w http.ResponseWriter, r *http.Request) {
-	render.RenderTemplate(w, "home.page.templ", &models.TemplateData{})
+	render.RenderTemplate(r, w, "home.page.templ", &models.TemplateData{})
 }
 
 func (m *Repository) About(w http.ResponseWriter, r *http.Request) {
-	render.RenderTemplate(w, "about.page.templ", &models.TemplateData{})
+	render.RenderTemplate(r, w, "about.page.templ", &models.TemplateData{})
 }
 
 func (m *Repository) Contact(w http.ResponseWriter, r *http.Request) {
-	render.RenderTemplate(w, "contact.page.templ", &models.TemplateData{})
+	render.RenderTemplate(r, w, "contact.page.templ", &models.TemplateData{})
 }
 
 func (m *Repository) Generals(w http.ResponseWriter, r *http.Request) {
-	render.RenderTemplate(w, "generals.page.templ", &models.TemplateData{})
+	render.RenderTemplate(r, w, "generals.page.templ", &models.TemplateData{})
 }
 
 func (m *Repository) Majors(w http.ResponseWriter, r *http.Request) {
-	render.RenderTemplate(w, "majors.page.templ", &models.TemplateData{})
+	render.RenderTemplate(r, w, "majors.page.templ", &models.TemplateData{})
 }
 
 func (m *Repository) MakeReservation(w http.ResponseWriter, r *http.Request) {
-
 	err := r.ParseForm()
-
 	if err != nil {
 		helpers.ServerError(w, err)
 		return
@@ -119,7 +96,7 @@ func (m *Repository) MakeReservation(w http.ResponseWriter, r *http.Request) {
 	if !form.Valid() {
 		data := make(map[string]interface{})
 		data["reservation"] = reservations
-		render.RenderTemplate(w, "make-reservation.page.templ", &models.TemplateData{
+		render.RenderTemplate(r, w, "make-reservation.page.templ", &models.TemplateData{
 			Form: form,
 			Data: data,
 		})
@@ -134,7 +111,7 @@ func (m *Repository) Reservation(w http.ResponseWriter, r *http.Request) {
 	data := make(map[string]interface{})
 
 	data["reservation"] = emptyReservation
-	render.RenderTemplate(w, "make-reservation.page.templ", &models.TemplateData{
+	render.RenderTemplate(r, w, "make-reservation.page.templ", &models.TemplateData{
 		Form: forms.New(nil),
 		Data: data,
 	})
@@ -142,29 +119,28 @@ func (m *Repository) Reservation(w http.ResponseWriter, r *http.Request) {
 
 func (m *Repository) ReservationSummary(w http.ResponseWriter, r *http.Request) {
 	reservation, ok := m.App.Session.Get(r.Context(), "reservation").(models.Reservation)
-	room, ok := m.App.Session.Get(r.Context(), "room").(models.Rooms)
-	if !ok {
+	room, ok1 := m.App.Session.Get(r.Context(), "room").(models.Rooms)
+	if !ok && !ok1 {
 		log.Println("can't get reservation from session in ReservationSummery")
 		m.App.Session.Put(r.Context(), "error", "Can't get reservation from session")
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
-
 	// m.App.Session.Remove(r.Context(), "reservation")
-
 	data := make(map[string]interface{})
 	data["reservation"] = reservation
 	data["room"] = room
 
-	render.RenderTemplate(w, "reservation-summary.page.templ", &models.TemplateData{
+	render.RenderTemplate(r, w, "reservation-summary.page.templ", &models.TemplateData{
 		Data: data,
 	})
 }
+
 func (m *Repository) PostReservationSummary(w http.ResponseWriter, r *http.Request) {
 	reservations, ok := m.App.Session.Get(r.Context(), "reservation").(models.Reservation)
-	room, ok := m.App.Session.Get(r.Context(), "room").(models.Rooms)
-	if !ok {
-		log.Println("can't get reservation from session in ReservationSummery")
+	room, ok1 := m.App.Session.Get(r.Context(), "room").(models.Rooms)
+	if !ok && !ok1 {
+		log.Println("can't get reservation from session in PostReservationSummery")
 		m.App.Session.Put(r.Context(), "error", "Can't get reservation from session")
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
@@ -176,8 +152,7 @@ func (m *Repository) PostReservationSummary(w http.ResponseWriter, r *http.Reque
 	FROM rooms r
 	INNER JOIN roomtype rt ON r.roomtypeid = rt.id
 	WHERE r.roomnumber = $7 AND rt.name = $8
-`
-
+	`
 	_, err := m.DB.SQL.Exec(query, reservations.FirstName, reservations.LastName, reservations.Email, reservations.Phone, reservations.StartDate, reservations.EndDate, room.RoomNumber, room.RoomType.Name)
 
 	if err != nil {
@@ -189,16 +164,26 @@ func (m *Repository) PostReservationSummary(w http.ResponseWriter, r *http.Reque
 		helpers.ServerError(w, err)
 		return
 	}
+	m.App.Session.Put(r.Context(), "flash", "Booking Confirmed")
+
+	htmlMsg := fmt.Sprintf(`<h1>Congratulations , %s </h1><h2>your boking is confirmed from <b>%s</b> to <b>%s</b></h2><br><h2>Room no: %s</h2><br><h2>Room Type: %s</h2>`, reservations.FirstName, reservations.StartDate.Format("2024-01-01"), reservations.EndDate.Format("2024-01-01"), room.RoomNumber, room.RoomType.Name)
+
+	mailData := models.MailData{
+		From:    "man.m@crestinfosystems.com",
+		To:      reservations.Email,
+		Subject: "Booking Confermed",
+		Data:    htmlMsg,
+	}
+	m.App.MailChan <- mailData
 
 	m.App.Session.Remove(r.Context(), "reservation")
 	m.App.Session.Remove(r.Context(), "room")
 
 	http.Redirect(w, r, "/", http.StatusSeeOther)
-
 }
 
 func (m *Repository) SearchAvailability(w http.ResponseWriter, r *http.Request) {
-	render.RenderTemplate(w, "search-availability.page.templ", &models.TemplateData{})
+	render.RenderTemplate(r, w, "search-availability.page.templ", &models.TemplateData{})
 }
 
 func (m *Repository) PostAvailability(w http.ResponseWriter, r *http.Request) {
@@ -250,7 +235,6 @@ func (m *Repository) PostAvailability(w http.ResponseWriter, r *http.Request) {
 	m.App.Session.Put(r.Context(), "reservation", reservations)
 	m.App.Session.Put(r.Context(), "rooms", rooms)
 	http.Redirect(w, r, "/room-availability", http.StatusSeeOther)
-
 }
 
 func (m *Repository) RoomAvailability(w http.ResponseWriter, r *http.Request) {
@@ -262,12 +246,12 @@ func (m *Repository) RoomAvailability(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	m.App.Session.Remove(r.Context(), "rooms")
+	// m.App.Session.Remove(r.Context(), "rooms")
 
 	data := make(map[string]interface{})
-	data["rooms"] = rooms
+	data["rooms"] = room
 
-	render.RenderTemplate(w, "room-availability.page.templ", &models.TemplateData{
+	render.RenderTemplate(r, w, "room-availability.page.templ", &models.TemplateData{
 		Data: data,
 	})
 }
@@ -292,3 +276,140 @@ func (m *Repository) PostRoomAvailability(w http.ResponseWriter, r *http.Request
 	m.App.Session.Put(r.Context(), "room", room)
 	http.Redirect(w, r, "/make-reservation", http.StatusSeeOther)
 }
+
+func (m *Repository) LoginHandler(w http.ResponseWriter, r *http.Request) {
+
+	render.RenderTemplate(r, w, "authentication.page.templ", &models.TemplateData{
+		Form: forms.New(nil),
+	})
+}
+
+func (m *Repository) PostLoginHandler(w http.ResponseWriter, r *http.Request) {
+
+	err := m.App.Session.RenewToken(r.Context())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = r.ParseForm()
+	if err != nil {
+		log.Fatal("error parsing form in sign in handler", err)
+	}
+	email := r.Form.Get("email")
+	password := r.Form.Get("password")
+
+	form := forms.New(r.PostForm)
+	form.Has("email", r)
+	form.Has("password", r)
+
+	if !form.Valid() {
+		render.RenderTemplate(r, w, "authentication.page.templ", &models.TemplateData{
+			Form: form,
+		})
+	} else {
+		var storedpassword string
+		var user_id int
+		err = m.DB.SQL.QueryRow("SELECT password,ID FROM users WHERE email = $1", email).Scan(&storedpassword, &user_id)
+		if err != nil {
+			log.Fatal("err in sign in query :", err)
+			if err == sql.ErrNoRows {
+				http.Redirect(w, r, "/login-user", http.StatusSeeOther)
+			}
+		}
+		if password == storedpassword {
+			m.App.Session.Put(r.Context(), "flash", "Successfully logged in")
+			m.App.Session.Put(r.Context(), "IsLoggedIn", true)
+			m.App.Session.Put(r.Context(), "user_id", user_id)
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			fmt.Println(storedpassword)
+			fmt.Println(user_id)
+		} else {
+			m.App.Session.Put(r.Context(), "error", "Please enter valid credentials")
+			// m.App.Session.Put(r.Context(), "IsLoggedIn", "false")
+			http.Redirect(w, r, "/login-user", http.StatusSeeOther)
+		}
+	}
+}
+
+func (m *Repository) SignupHandler(w http.ResponseWriter, r *http.Request) {
+	render.RenderTemplate(r, w, "signup.page.templ", &models.TemplateData{
+		Form: forms.New(nil),
+	})
+}
+
+func (m *Repository) PostSignupHandler(w http.ResponseWriter, r *http.Request) {
+	err := r.ParseForm()
+	if err != nil {
+		log.Println(err)
+	}
+
+	user := &models.User{
+		FirstName: r.Form.Get("first_name"),
+		LastName:  r.Form.Get("last_name"),
+		Password:  r.Form.Get("password"),
+		Email:     r.Form.Get("email"),
+	}
+
+	form := forms.New(r.PostForm)
+	form.Has("first_name", r)
+	form.Has("last_name", r)
+	form.Has("email", r)
+	form.Has("password", r)
+
+	if !form.Valid() {
+		render.RenderTemplate(r, w, "signup.page.templ", &models.TemplateData{
+			Form: form,
+		})
+	}
+
+	query := `INSERT INTO users (firstname,lastname,email,password)
+	VALUES ($1,$2,$3,$4)`
+
+	_, err = m.DB.SQL.Exec(query, user.FirstName, user.LastName, user.Email, user.Password)
+
+	if err != nil {
+		log.Println(err)
+	}
+
+	eq := struct {
+		IsLoggedIn bool
+	}{
+		IsLoggedIn: true,
+	}
+	m.App.Session.Put(r.Context(), "eq", eq)
+	m.App.Session.Put(r.Context(), "flash", "Successfully Sign Up")
+	http.Redirect(w, r, "/login-user", http.StatusSeeOther)
+}
+
+func (m *Repository) Logout(w http.ResponseWriter, r *http.Request) {
+	_ = m.App.Session.Destroy(r.Context())
+	_ = m.App.Session.RenewToken(r.Context())
+
+	http.Redirect(w, r, "/login-user", http.StatusSeeOther)
+}
+
+// func (m *Repository) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+// 	_, ok := m.App.Session.Get(r.Context(), "user_id").(models.User)
+
+// 	if ok != true {
+// 		log.Println("user is not logged in")
+// 		http.Redirect(w, r, "/login-user", http.StatusSeeOther)
+// 	}
+
+// 	query := `UPDATE users
+// 	SET
+// 		FirstName = $1,
+// 		LastName = $2,
+// 		Password = $3,
+// 	WHERE
+// 		email = $4;
+// 	`
+// 	err := r.ParseForm()
+
+// 	if err != nil {
+// 		log.Println(err)
+// 	}
+
+// 	_ = m.DB.SQL.QueryRowContext(r.Context(), query, r.Form.Get("firstname"), r.Form.Get("lasttname"), r.Form.Get("email"), r.Form.Get("password"))
+
+// }

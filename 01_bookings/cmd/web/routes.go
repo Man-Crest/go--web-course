@@ -29,10 +29,29 @@ func routes(app *config.AppConfig) http.Handler {
 	mux.Post("/search-availability", handlers.Repo.PostAvailability)
 	mux.Get("/room-availability", handlers.Repo.RoomAvailability)
 	mux.Post("/room-availability", handlers.Repo.PostRoomAvailability)
+	mux.Get("/login-user", handlers.Repo.LoginHandler)
+	mux.Post("/login-user", handlers.Repo.PostLoginHandler)
+	mux.Get("/signup-user", handlers.Repo.SignupHandler)
+	mux.Post("/signup-user", handlers.Repo.PostSignupHandler)
+	mux.Get("/user/logout", handlers.Repo.Logout)
+	// mux.Post("/update-user", handlers.Repo.UpdateUserHandler)
 
 	fs := http.FileServer(http.Dir("./static/"))
 
 	mux.Handle("/static/*", http.StripPrefix("/static/", fs))
+
+	mux.Route("/admin", func(mux chi.Router) {
+		mux.Use(Auth)
+		mux.Get("/dashboard", handlers.Repo.AdminDashboard)
+		mux.Get("/reservations-all", handlers.Repo.AdminAllReservations)
+		mux.Get("/reservations-new", handlers.Repo.AdminDashboard)
+		mux.Get("/reservations-calendar", handlers.Repo.AdminNewReservations)
+		mux.Get("/reservations/{src}/{id}", handlers.Repo.AdminReservationsDetail)
+		mux.Post("/reservations/cancle/{id}", handlers.Repo.AdminCancleReservation)
+		mux.Post("/reservations/update/{id}", handlers.Repo.AdminUpdateReservation)
+		mux.Get("/reservation-calendar", handlers.Repo.AdminReservationsCalendar)
+		mux.Post("/admin-avaibility-check", handlers.Repo.PostAdminReservationsCalendar)
+	})
 
 	return mux
 }
